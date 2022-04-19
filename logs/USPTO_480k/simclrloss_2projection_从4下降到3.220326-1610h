@@ -1,0 +1,419 @@
+Logging arguments
+**** model = *g2s_series_rel*
+**** data_name = *USPTO_480k*
+**** task = *reaction_prediction*
+**** representation_end = *smiles*
+**** seed = *42*
+**** max_src_len = *512*
+**** max_tgt_len = *512*
+**** num_workers = *0*
+**** verbose = *False*
+**** log_file = *USPTO_480k_g2s_series_rel_smiles_smiles.train.1.log*
+**** vocab_file = *./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/vocab_smiles.txt*
+**** preprocess_output_path = **
+**** save_dir = *./checkpoints/USPTO_480k_g2s_series_rel_smiles_smiles.1*
+**** train_bin = *./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/train_0.npz*
+**** valid_bin = *./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/val_0.npz*
+**** load_from = **
+**** embed_size = *512*
+**** share_embeddings = *False*
+**** mpn_type = *dgat*
+**** encoder_num_layers = *4*
+**** encoder_hidden_size = *512*
+**** encoder_attn_heads = *8*
+**** encoder_filter_size = *2048*
+**** encoder_norm = **
+**** encoder_skip_connection = **
+**** encoder_positional_encoding = *none*
+**** encoder_emb_scale = *sqrt*
+**** compute_graph_distance = *True*
+**** attn_enc_num_layers = *6*
+**** attn_enc_hidden_size = *512*
+**** attn_enc_heads = *8*
+**** attn_enc_filter_size = *2048*
+**** rel_pos = *emb_only*
+**** rel_pos_buckets = *11*
+**** decoder_num_layers = *6*
+**** decoder_hidden_size = *512*
+**** decoder_attn_heads = *8*
+**** decoder_filter_size = *2048*
+**** dropout = *0.3*
+**** attn_dropout = *0.3*
+**** max_relative_positions = *4*
+**** enable_amp = *True*
+**** epoch = *200*
+**** max_steps = *300000*
+**** warmup_steps = *8000*
+**** lr = *4.0*
+**** beta1 = *0.9*
+**** beta2 = *0.998*
+**** eps = *1e-09*
+**** weight_decay = *0.0*
+**** clip_norm = *20.0*
+**** batch_type = *tokens*
+**** train_batch_size = *4096*
+**** valid_batch_size = *4096*
+**** accumulation_count = *4*
+**** log_iter = *100*
+**** eval_iter = *2000*
+**** save_iter = *5000*
+**** margin = *4.0*
+**** do_profile = *False*
+**** record_shapes = *False*
+**** do_predict = *False*
+**** do_score = *False*
+**** checkpoint_step_start = *None*
+**** checkpoint_step_end = *None*
+**** predict_batch_size = *4096*
+**** test_bin = **
+**** result_file = **
+**** beam_size = *5*
+**** n_best = *10*
+**** temperature = *1.0*
+**** predict_min_len = *1*
+**** predict_max_len = *512*
+Loading vocab from ./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/vocab_smiles.txt
+Gsimclr(
+  (encoder): GraphFeatEncoder(
+    (mpn): DGATEncoder(
+      (leaky_relu): LeakyReLU(negative_slope=0.01)
+      (W_o): Sequential(
+        (0): Linear(in_features=617, out_features=512, bias=True)
+        (1): GELU()
+      )
+      (rnn): DGATGRU(
+        (W_z): Linear(in_features=626, out_features=512, bias=True)
+        (W_r): Linear(in_features=114, out_features=512, bias=False)
+        (U_r): Linear(in_features=512, out_features=512, bias=True)
+        (W_h): Linear(in_features=626, out_features=512, bias=True)
+        (leaky_relu): LeakyReLU(negative_slope=0.01)
+        (attn_W_q): Linear(in_features=114, out_features=512, bias=True)
+        (attn_W_k): Linear(in_features=512, out_features=512, bias=True)
+        (attn_W_v): Linear(in_features=512, out_features=512, bias=True)
+        (softmax): Softmax(dim=1)
+        (dropout): Dropout(p=0.3, inplace=False)
+        (attn_dropout): Dropout(p=0.3, inplace=False)
+      )
+      (attn_W_q): Linear(in_features=105, out_features=512, bias=True)
+      (attn_W_k): Linear(in_features=512, out_features=512, bias=True)
+      (attn_W_v): Linear(in_features=512, out_features=512, bias=True)
+      (softmax): Softmax(dim=1)
+      (dropout): Dropout(p=0.3, inplace=False)
+      (attn_dropout): Dropout(p=0.3, inplace=False)
+    )
+  )
+  (g): Sequential(
+    (0): Linear(in_features=512, out_features=256, bias=False)
+    (1): BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU(inplace=True)
+    (3): Linear(in_features=256, out_features=128, bias=True)
+  )
+)
+Number of parameters = 2609808
+Loading vocab from ./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/vocab_smiles.txt
+Loading preprocessed features from ./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/train_0.npz
+Loaded and initialized G2SDataset, size: 409035
+Loading vocab from ./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/vocab_smiles.txt
+Loading preprocessed features from ./my_preprocessed/USPTO_480k_g2s_series_rel_smiles_smiles/train_0.npz
+Loaded and initialized G2SDataset, size: 409035
+Start training
+Calling G2SDataset.batch()
+Done, time:  1.62 s, total batches: 6756
+Calling G2SDataset.batch()
+Done, time:  1.63 s, total batches: 6756
+Step 100 Loss: 5.1306, lr 6.423376497217022e-06
+Step 200 Loss: 5.0473, lr 1.2599700052233389e-05
+Step 300 Loss: 4.9513, lr 1.8776023607249752e-05
+Step 400 Loss: 4.8826, lr 2.4952347162266122e-05
+Step 500 Loss: 4.8238, lr 3.1128670717282486e-05
+Step 600 Loss: 4.7477, lr 3.730499427229885e-05
+Step 700 Loss: 4.6832, lr 4.348131782731521e-05
+Step 800 Loss: 4.6281, lr 4.9657641382331586e-05
+Step 900 Loss: 4.5811, lr 5.583396493734795e-05
+Step 1000 Loss: 4.5404, lr 6.201028849236433e-05
+Step 1100 Loss: 4.5047, lr 6.818661204738069e-05
+Step 1200 Loss: 4.4659, lr 7.436293560239705e-05
+Step 1300 Loss: 4.4308, lr 8.053925915741342e-05
+Step 1400 Loss: 4.4001, lr 8.671558271242978e-05
+Step 1500 Loss: 4.3726, lr 9.289190626744615e-05
+Step 1600 Loss: 4.3473, lr 9.906822982246251e-05
+Step 1700 Loss: 4.3244, lr 0.00010524455337747889
+Step 1800 Loss: 4.3037, lr 0.00011142087693249526
+Step 1900 Loss: 4.2788, lr 0.00011759720048751162
+Step 2000 Loss: 4.2501, lr 0.00012377352404252797
+Step 2100 Loss: 4.2238, lr 0.00012994984759754434
+Step 2200 Loss: 4.1996, lr 0.00013612617115256072
+Step 2300 Loss: 4.1772, lr 0.0001423024947075771
+Step 2400 Loss: 4.1565, lr 0.00014847881826259346
+Step 2500 Loss: 4.1371, lr 0.00015465514181760984
+Step 2600 Loss: 4.1191, lr 0.00016083146537262618
+Step 2700 Loss: 4.1024, lr 0.00016700778892764253
+Step 2800 Loss: 4.0841, lr 0.00017318411248265893
+Step 2900 Loss: 4.0652, lr 0.00017936043603767528
+Step 3000 Loss: 4.0472, lr 0.00018553675959269168
+Step 3100 Loss: 4.0304, lr 0.00019171308314770802
+Step 3200 Loss: 4.0145, lr 0.00019788940670272437
+Step 3300 Loss: 3.9994, lr 0.00020406573025774074
+Step 3400 Loss: 3.9853, lr 0.00021024205381275712
+Step 3500 Loss: 3.9718, lr 0.0002164183773677735
+Step 3600 Loss: 3.9590, lr 0.00022259470092278984
+Step 3700 Loss: 3.9470, lr 0.00022877102447780624
+Step 3800 Loss: 3.9355, lr 0.00023494734803282259
+Step 3900 Loss: 3.9246, lr 0.00024112367158783893
+Step 4000 Loss: 3.9143, lr 0.0002472999951428553
+Step 4100 Loss: 3.9044, lr 0.0002534763186978717
+Step 4200 Loss: 3.8951, lr 0.00025965264225288805
+Step 4300 Loss: 3.8848, lr 0.0002658289658079044
+Step 4400 Loss: 3.8726, lr 0.0002720052893629208
+Step 4500 Loss: 3.8609, lr 0.0002781816129179372
+Step 4600 Loss: 3.8496, lr 0.0002843579364729535
+Step 4700 Loss: 3.8390, lr 0.00029053426002796987
+Step 4800 Loss: 3.8289, lr 0.00029671058358298624
+Step 4900 Loss: 3.8191, lr 0.0003028869071380026
+Step 5000 Loss: 3.8098, lr 0.000309063230693019
+Step 5100 Loss: 3.8007, lr 0.00031523955424803536
+Step 5200 Loss: 3.7920, lr 0.00032141587780305173
+Step 5300 Loss: 3.7809, lr 0.00032759220135806805
+Step 5400 Loss: 3.7695, lr 0.00033376852491308443
+Step 5500 Loss: 3.7586, lr 0.0003399448484681008
+Step 5600 Loss: 3.7480, lr 0.0003461211720231172
+Step 5700 Loss: 3.7378, lr 0.00035229749557813355
+Step 5800 Loss: 3.7281, lr 0.00035847381913314987
+Step 5900 Loss: 3.7185, lr 0.00036465014268816624
+Step 6000 Loss: 3.7064, lr 0.00037082646624318267
+Step 6100 Loss: 3.6940, lr 0.00037700278979819904
+Step 6200 Loss: 3.6820, lr 0.00038317911335321536
+Step 6300 Loss: 3.6703, lr 0.00038935543690823174
+Step 6400 Loss: 3.6571, lr 0.00039553176046324816
+Step 6500 Loss: 3.6418, lr 0.0004017080840182645
+Step 6600 Loss: 3.6264, lr 0.00040788440757328086
+Step 6700 Loss: 3.6108, lr 0.0004140607311282972
+Train Epoch: [6/200] Loss: 3.5990,lr 0.000418
+Calling G2SDataset.batch()
+Done, time:  2.02 s, total batches: 6756
+Calling G2SDataset.batch()
+Done, time:  1.68 s, total batches: 6756
+Step 6800 Loss: 4.6296, lr 0.00042023705468331355
+Step 6900 Loss: 4.4608, lr 0.00042641337823833
+Step 7000 Loss: 4.3429, lr 0.0004325897017933463
+Step 7100 Loss: 4.2841, lr 0.00043876602534836267
+Step 7200 Loss: 4.2507, lr 0.00044494234890337904
+Step 7300 Loss: 4.2186, lr 0.00045111867245839536
+Step 7400 Loss: 4.1772, lr 0.0004572949960134118
+Step 7500 Loss: 4.1467, lr 0.00046347131956842817
+Step 7600 Loss: 4.1234, lr 0.0004696476431234445
+Step 7700 Loss: 4.1046, lr 0.00047582396667846086
+Step 7800 Loss: 4.0893, lr 0.0004820002902334773
+Step 7900 Loss: 4.0729, lr 0.0004881766137884936
+Step 8000 Loss: 4.0543, lr 0.00049435293734351
+Step 8100 Loss: 4.0385, lr 0.0005005292608985263
+Step 8200 Loss: 4.0248, lr 0.0005067055844535427
+Step 8300 Loss: 4.0129, lr 0.0005128819080085592
+Step 8400 Loss: 4.0021, lr 0.0005190582315635755
+Step 8500 Loss: 3.9925, lr 0.0005252345551185918
+Step 8600 Loss: 3.9840, lr 0.0005314108786736081
+Step 8700 Loss: 3.9656, lr 0.0005375872022286245
+Step 8800 Loss: 3.9479, lr 0.000543763525783641
+Step 8900 Loss: 3.9320, lr 0.0005499398493386573
+Step 9000 Loss: 3.9175, lr 0.0005561161728936736
+Step 9100 Loss: 3.9040, lr 0.0005622924964486899
+Step 9200 Loss: 3.8917, lr 0.0005684688200037064
+Step 9300 Loss: 3.8803, lr 0.0005746451435587228
+Step 9400 Loss: 3.8696, lr 0.0005808214671137391
+Step 9500 Loss: 3.8599, lr 0.0005869977906687554
+Step 9600 Loss: 3.8460, lr 0.0005931741142237718
+Step 9700 Loss: 3.8332, lr 0.0005993504377787883
+Step 9800 Loss: 3.8211, lr 0.0006055267613338046
+Step 9900 Loss: 3.8097, lr 0.0006117030848888209
+Step 10000 Loss: 3.7990, lr 0.0006178794084438372
+Step 10100 Loss: 3.7890, lr 0.0006240557319988537
+Step 10200 Loss: 3.7793, lr 0.0006302320555538701
+Step 10300 Loss: 3.7703, lr 0.0006364083791088864
+Step 10400 Loss: 3.7618, lr 0.0006425847026639027
+Step 10500 Loss: 3.7537, lr 0.0006487610262189192
+Step 10600 Loss: 3.7461, lr 0.0006549373497739356
+Step 10700 Loss: 3.7389, lr 0.0006611136733289519
+Step 10800 Loss: 3.7320, lr 0.0006672899968839682
+Step 10900 Loss: 3.7255, lr 0.0006734663204389845
+Step 11000 Loss: 3.7195, lr 0.000679642643994001
+Step 11100 Loss: 3.7105, lr 0.0006858189675490174
+Step 11200 Loss: 3.7013, lr 0.0006919952911040337
+Step 11300 Loss: 3.6926, lr 0.0006981716146590501
+Step 11400 Loss: 3.6842, lr 0.0007043479382140665
+Step 11500 Loss: 3.6762, lr 0.0007105242617690829
+Step 11600 Loss: 3.6686, lr 0.0007167005853240991
+Step 11700 Loss: 3.6614, lr 0.0007228769088791155
+Step 11800 Loss: 3.6544, lr 0.000729053232434132
+Step 11900 Loss: 3.6478, lr 0.0007352295559891483
+Step 12000 Loss: 3.6405, lr 0.0007414058795441647
+Step 12100 Loss: 3.6309, lr 0.0007475822030991809
+Step 12200 Loss: 3.6216, lr 0.0007537585266541973
+Step 12300 Loss: 3.6127, lr 0.0007599348502092138
+Step 12400 Loss: 3.6041, lr 0.0007661111737642301
+Step 12500 Loss: 3.5959, lr 0.0007722874973192465
+Step 12600 Loss: 3.5879, lr 0.0007784638208742627
+Step 12700 Loss: 3.5794, lr 0.0007846401444292792
+Step 12800 Loss: 3.5683, lr 0.0007908164679842956
+Step 12900 Loss: 3.5576, lr 0.0007969927915393119
+Step 13000 Loss: 3.5472, lr 0.0008031691150943283
+Step 13100 Loss: 3.5371, lr 0.0008093454386493445
+Step 13200 Loss: 3.5236, lr 0.000815521762204361
+Step 13300 Loss: 3.5097, lr 0.0008216980857593774
+Step 13400 Loss: 3.4958, lr 0.0008278744093143937
+Step 13500 Loss: 3.4791, lr 0.0008340507328694101
+Train Epoch: [7/200] Loss: 3.4766,lr 0.000835
+Calling G2SDataset.batch()
+Done, time:  1.68 s, total batches: 6756
+Calling G2SDataset.batch()
+Done, time:  1.63 s, total batches: 6756
+Step 13600 Loss: 4.4635, lr 0.0008402270564244266
+Step 13700 Loss: 4.3563, lr 0.0008464033799794429
+Step 13800 Loss: 4.2698, lr 0.0008525797035344593
+Step 13900 Loss: 4.2268, lr 0.0008587560270894755
+Step 14000 Loss: 4.2020, lr 0.000864932350644492
+Step 14100 Loss: 4.1620, lr 0.0008711086741995084
+Step 14200 Loss: 4.1275, lr 0.0008772849977545247
+Step 14300 Loss: 4.1016, lr 0.0008834613213095411
+Step 14400 Loss: 4.0813, lr 0.0008896376448645573
+Step 14500 Loss: 4.0651, lr 0.0008958139684195738
+Step 14600 Loss: 4.0515, lr 0.0009019902919745902
+Step 14700 Loss: 4.0332, lr 0.0009081666155296065
+Step 14800 Loss: 4.0165, lr 0.000914342939084623
+Step 14900 Loss: 4.0022, lr 0.0009205192626396392
+Step 15000 Loss: 3.9899, lr 0.0009266955861946556
+Step 15100 Loss: 3.9791, lr 0.000932871909749672
+Step 15200 Loss: 3.9694, lr 0.0009390482333046883
+Step 15300 Loss: 3.9609, lr 0.0009452245568597048
+Step 15400 Loss: 3.9490, lr 0.000951400880414721
+Step 15500 Loss: 3.9308, lr 0.0009575772039697374
+Step 15600 Loss: 3.9144, lr 0.0009637535275247538
+Step 15700 Loss: 3.8996, lr 0.0009699298510797702
+Step 15800 Loss: 3.8861, lr 0.0009761061746347866
+Step 15900 Loss: 3.8736, lr 0.000982282498189803
+Step 16000 Loss: 3.8620, lr 0.0009884588217448193
+Step 16100 Loss: 3.8514, lr 0.0009946351452998358
+Step 16200 Loss: 3.8415, lr 0.001000811468854852
+Step 16300 Loss: 3.8303, lr 0.0010069877924098684
+Step 16400 Loss: 3.8172, lr 0.0010131641159648848
+Step 16500 Loss: 3.8050, lr 0.001019340439519901
+Step 16600 Loss: 3.7936, lr 0.0010255167630749175
+Step 16700 Loss: 3.7829, lr 0.0010316930866299339
+Step 16800 Loss: 3.7727, lr 0.0010378694101849503
+Step 16900 Loss: 3.7632, lr 0.0010440457337399667
+Step 17000 Loss: 3.7541, lr 0.001050222057294983
+Step 17100 Loss: 3.7457, lr 0.0010563983808499994
+Step 17200 Loss: 3.7376, lr 0.0010625747044050156
+Step 17300 Loss: 3.7301, lr 0.001068751027960032
+Step 17400 Loss: 3.7228, lr 0.0010749273515150484
+Step 17500 Loss: 3.7161, lr 0.0010811036750700647
+Step 17600 Loss: 3.7096, lr 0.001087279998625081
+Step 17700 Loss: 3.7036, lr 0.0010934563221800975
+Step 17800 Loss: 3.6968, lr 0.001099632645735114
+Step 17900 Loss: 3.6876, lr 0.0011058089692901304
+Step 18000 Loss: 3.6789, lr 0.0011119852928451466
+Step 18100 Loss: 3.6704, lr 0.001118161616400163
+Step 18200 Loss: 3.6624, lr 0.0011243379399551792
+Step 18300 Loss: 3.6548, lr 0.0011305142635101956
+Step 18400 Loss: 3.6476, lr 0.001136690587065212
+Step 18500 Loss: 3.6407, lr 0.0011428669106202285
+Step 18600 Loss: 3.6340, lr 0.001149043234175245
+Step 18700 Loss: 3.6277, lr 0.0011552195577302611
+Step 18800 Loss: 3.6190, lr 0.0011613958812852776
+Step 18900 Loss: 3.6097, lr 0.001167572204840294
+Step 19000 Loss: 3.6008, lr 0.0011737485283953102
+Step 19100 Loss: 3.5922, lr 0.0011799248519503266
+Step 19200 Loss: 3.5839, lr 0.001186101175505343
+Step 19300 Loss: 3.5760, lr 0.0011922774990603593
+Step 19400 Loss: 3.5682, lr 0.0011984538226153757
+Step 19500 Loss: 3.5582, lr 0.0012046301461703921
+Step 19600 Loss: 3.5474, lr 0.0012108064697254086
+Step 19700 Loss: 3.5369, lr 0.001216982793280425
+Step 19800 Loss: 3.5268, lr 0.0012231591168354412
+Step 19900 Loss: 3.5156, lr 0.0012293354403904576
+Step 20000 Loss: 3.5016, lr 0.0012355117639454738
+Step 20100 Loss: 3.4879, lr 0.0012416880875004903
+Step 20200 Loss: 3.4743, lr 0.0012478644110555067
+Train Epoch: [8/200] Loss: 3.4614,lr 0.001252
+Calling G2SDataset.batch()
+Done, time:  1.62 s, total batches: 6755
+Calling G2SDataset.batch()
+Done, time:  1.62 s, total batches: 6755
+Step 20300 Loss: 4.6437, lr 0.0012540407346105231
+Step 20400 Loss: 4.4097, lr 0.0012602170581655396
+Step 20500 Loss: 4.3019, lr 0.0012663933817205558
+Step 20600 Loss: 4.2406, lr 0.0012725697052755722
+Step 20700 Loss: 4.2071, lr 0.0012787460288305886
+Step 20800 Loss: 4.1796, lr 0.0012849223523856048
+Step 20900 Loss: 4.1383, lr 0.0012910986759406213
+Step 21000 Loss: 4.1083, lr 0.0012972749994956375
+Step 21100 Loss: 4.0852, lr 0.001303451323050654
+Step 21200 Loss: 4.0670, lr 0.0013096276466056703
+Step 21300 Loss: 4.0521, lr 0.0013158039701606868
+Step 21400 Loss: 4.0372, lr 0.0013219802937157032
+Step 21500 Loss: 4.0189, lr 0.0013281566172707196
+Step 21600 Loss: 4.0035, lr 0.0013343329408257358
+Step 21700 Loss: 3.9902, lr 0.0013405092643807522
+Step 21800 Loss: 3.9786, lr 0.0013466855879357685
+Step 21900 Loss: 3.9684, lr 0.0013528619114907849
+Step 22000 Loss: 3.9594, lr 0.0013590382350458013
+Step 22100 Loss: 3.9513, lr 0.0013652145586008177
+Step 22200 Loss: 3.9348, lr 0.0013713908821558342
+Step 22300 Loss: 3.9175, lr 0.0013775672057108504
+Step 22400 Loss: 3.9019, lr 0.0013837435292658666
+Step 22500 Loss: 3.8877, lr 0.0013899198528208832
+Step 22600 Loss: 3.8746, lr 0.0013960961763758994
+Step 22700 Loss: 3.8627, lr 0.0014022724999309157
+Step 22800 Loss: 3.8516, lr 0.0014084488234859323
+Step 22900 Loss: 3.8414, lr 0.0014146251470409485
+Step 23000 Loss: 3.8320, lr 0.001420801470595965
+Step 23100 Loss: 3.8189, lr 0.0014269777941509814
+Step 23200 Loss: 3.8062, lr 0.0014331541177059978
+Step 23300 Loss: 3.7944, lr 0.001439330441261014
+Step 23400 Loss: 3.7833, lr 0.0014455067648160307
+Step 23500 Loss: 3.7728, lr 0.0014516830883710469
+Step 23600 Loss: 3.7630, lr 0.001457859411926063
+Step 23700 Loss: 3.7537, lr 0.0014640357354810793
+Step 23800 Loss: 3.7450, lr 0.001470212059036096
+Step 23900 Loss: 3.7368, lr 0.0014763883825911121
+Step 24000 Loss: 3.7290, lr 0.0014825647061461286
+Step 24100 Loss: 3.7216, lr 0.001488741029701145
+Step 24200 Loss: 3.7146, lr 0.0014949173532561614
+Step 24300 Loss: 3.7081, lr 0.0015010936768111776
+Step 24400 Loss: 3.7018, lr 0.0015072700003661943
+Step 24500 Loss: 3.6958, lr 0.0015134463239212105
+Step 24600 Loss: 3.6876, lr 0.0015196226474762267
+Step 24700 Loss: 3.6786, lr 0.0015257989710312431
+Step 24800 Loss: 3.6701, lr 0.0015319752945862596
+Step 24900 Loss: 3.6619, lr 0.001538151618141276
+Step 25000 Loss: 3.6541, lr 0.0015443279416962922
+Step 25100 Loss: 3.6466, lr 0.0015505042652513088
+Step 25200 Loss: 3.6396, lr 0.001556680588806325
+Step 25300 Loss: 3.6328, lr 0.0015628569123613413
+Step 25400 Loss: 3.6263, lr 0.001569033235916358
+Step 25500 Loss: 3.6194, lr 0.0015752095594713741
+Step 25600 Loss: 3.6100, lr 0.0015813858830263903
+Step 25700 Loss: 3.6008, lr 0.001587562206581407
+Step 25800 Loss: 3.5920, lr 0.0015937385301364232
+Step 25900 Loss: 3.5836, lr 0.0015999148536914396
+Step 26000 Loss: 3.5754, lr 0.0016060911772464558
+Step 26100 Loss: 3.5676, lr 0.0016122675008014725
+Step 26200 Loss: 3.5595, lr 0.0016184438243564887
+Step 26300 Loss: 3.5485, lr 0.0016246201479115049
+Step 26400 Loss: 3.5378, lr 0.0016307964714665215
+Step 26500 Loss: 3.5275, lr 0.0016369727950215377
+Step 26600 Loss: 3.5176, lr 0.0016431491185765542
+Step 26700 Loss: 3.5046, lr 0.0016493254421315706
+Step 26800 Loss: 3.4909, lr 0.001655501765686587
+Step 26900 Loss: 3.4771, lr 0.0016616780892416032
+Step 27000 Loss: 3.4613, lr 0.0016678544127966195
+Train Epoch: [9/200] Loss: 3.4570,lr 0.001669
+Calling G2SDataset.batch()
+Done, time:  1.99 s, total batches: 6755
+Calling G2SDataset.batch()
+Done, time:  1.68 s, total batches: 6755
+Step 27100 Loss: 4.4746, lr 0.001674030736351636
+Step 27200 Loss: 4.3646, lr 0.0016802070599066523
+Step 27300 Loss: 4.2694, lr 0.0016863833834616685
+Step 27400 Loss: 4.2231, lr 0.0016925597070166852
+Step 27500 Loss: 4.1965, lr 0.0016987360305717014
+Step 27600 Loss: 4.1588, lr 0.0017049123541267178
