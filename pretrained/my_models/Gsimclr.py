@@ -20,18 +20,19 @@ class Gsimclr(nn.Module):
             n_atom_feat=sum(ATOM_FDIM),
             n_bond_feat=BOND_FDIM
         )
+        
         if args.attn_enc_num_layers > 0:
             self.attention_encoder = AttnEncoderXL(args)
         else:
             self.attention_encoder = None
-
+        
         #used for producing a global-embedding
         #dim从512->256
-        self.set2set=Set2Set(256,processing_steps=3) 
+        #self.set2set=Set2Set(256,processing_steps=3) 
 
         # projection head 
         self.g = nn.Sequential(
-                               nn.Linear(256,256,bias=False),
+                               nn.Linear(256,256,bias=True),
                                nn.BatchNorm1d(256),
                                nn.ReLU(inplace=True),
                                nn.Linear(256, feature_dim, bias=True))
@@ -40,11 +41,6 @@ class Gsimclr(nn.Module):
     def f(self,reaction_batch:G2SBatch):
 
         #print('reaction_batch.size',reaction_batch.size) #b
-        ######################################################
-        #尝试修改为多gpu
-        #添加一行
-        #self.encoder=nn.DataParallel(self.encoder)
-        ######################################################
         hatom,_ = self.encoder(reaction_batch)
 
         #print('hatom.size()',hatom.size()) #512/632不等
@@ -66,6 +62,7 @@ class Gsimclr(nn.Module):
         memory_lengths = torch.tensor(memory_lengths,
                                       dtype=torch.long,
                                       device=padded_memory_bank.device)
+        
         
         if self.attention_encoder is not None:
             padded_memory_bank = self.attention_encoder(

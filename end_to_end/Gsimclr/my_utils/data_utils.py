@@ -1,6 +1,5 @@
 import logging
 import os.path
-
 import networkx as nx
 import numpy as np
 import re
@@ -13,7 +12,6 @@ from torch.utils.data import Dataset
 from typing import Dict, List, Tuple
 from my_utils.chem_utils import ATOM_FDIM, BOND_FDIM, get_atom_features_sparse, get_bond_features
 from my_utils.rxn_graphs import RxnGraph
-
 
 def tokenize_selfies_from_smiles(smi: str) -> str:
     encoded_selfies = sf.encoder(smi)
@@ -83,7 +81,6 @@ class G2SBatch:
         self.tgt_lengths = tgt_lengths
         self.distances = distances
 
-        self.size = len(tgt_lengths)
 
     def to(self, device):
         self.fnode = self.fnode.to(device)
@@ -113,13 +110,14 @@ class G2SBatch:
         logging.info(f"fnode: {self.fnode.shape}, "
                      f"fmess: {self.fmess.shape}, "
                      f"tgt_token_ids: {self.tgt_token_ids.shape}, "
-                     f"tgt_lengths: {self.tgt_lengths}")
+                     f"tgt_lengths: {self.tgt_lengths}"
+                    )
 
 
 class G2SDataset(Dataset):
     def __init__(self, args,is_reac,file: str):
         self.args = args
-
+        self.is_reac=is_reac
         self.a_scopes = []
         self.b_scopes = []
         self.a_features = []
@@ -148,14 +146,21 @@ class G2SDataset(Dataset):
         feat = np.load(file)
         for attr in ["src_token_ids", "src_lens", "tgt_token_ids", "tgt_lens"]:
             setattr(self,attr,feat[attr])
-        if is_reac:
+        if self.is_reac:
             for attr in ["a_scopes", "b_scopes", "a_features", "b_features", "a_graphs", "b_graphs",
                      "a_scopes_lens", "b_scopes_lens", "a_features_lens", "b_features_lens"]:
                 setattr(self, attr, feat['src_'+attr])
+            for attr in ["src_token_ids","src_lens","tgt_token_ids","tgt_lens"]:
+                setattr(self,attr,feat[attr])
+
         else:
             for attr in ["a_scopes", "b_scopes", "a_features", "b_features", "a_graphs", "b_graphs",
                      "a_scopes_lens", "b_scopes_lens", "a_features_lens", "b_features_lens"]:
                 setattr(self, attr, feat['tgt_'+attr])
+            for attr in ["src_token_ids","src_lens","tgt_token_ids","tgt_lens"]:
+                setattr(self,attr,feat[attr])
+            
+
         # mask out chiral tag (as UNSPECIFIED)
         self.a_features[:, 6] = 2
 
@@ -176,20 +181,6 @@ class G2SDataset(Dataset):
         self.data_indices = np.arange(self.data_size)
 
         logging.info(f"Loaded and initialized G2SDataset, size: {self.data_size}")
-
-    def sort(self):
-        if self.args.verbose:
-            start = time.time()
-
-            logging.info(f"Calling G2SDataset.sort()")
-            sys.stdout.flush()
-            self.data_indices = np.argsort(self.src_lens)
-
-            logging.info(f"Done, time: {time.time() - start: .2f} s")
-            sys.stdout.flush()
-
-        else:
-            self.data_indices = np.argsort(self.src_lens)
 
     def shuffle_in_bucket(self, bucket_size: int):
         if self.args.verbose:
@@ -224,69 +215,16 @@ class G2SDataset(Dataset):
             raise NotImplementedError
 
         elif batch_type.startswith("tokens"):
-            sample_size = 0
-            max_batch_src_len = 0
-            max_batch_tgt_len = 0
 
-            for data_idx in self.data_indices:
-                src_len = self.src_lens[data_idx]
-                tgt_len = self.tgt_lens[data_idx]
-
-                max_batch_src_len = max(src_len, max_batch_src_len)
-                max_batch_tgt_len = max(tgt_len, max_batch_tgt_len)
-                while self.args.enable_amp and not max_batch_src_len % 8 == 0:  # for amp
-                    max_batch_src_len += 1
-                while self.args.enable_amp and not max_batch_tgt_len % 8 == 0:  # for amp
-                    max_batch_tgt_len += 1
-
-                if batch_type == "tokens" and \
-                        max_batch_src_len * (sample_size + 1) <= batch_size:
-                    sample_size += 1
-                elif batch_type == "tokens_sum" and \
-                        (max_batch_src_len + max_batch_tgt_len) * (sample_size + 1) <= batch_size:
-                    sample_size += 1
-                elif self.args.enable_amp and not sample_size % 8 == 0:
-                    sample_size += 1
-                else:
-                    self.batch_sizes.append(sample_size)
-
-                    sample_size = 1
-                    max_batch_src_len = src_len
-                    max_batch_tgt_len = tgt_len
-                    while self.args.enable_amp and not max_batch_src_len % 8 == 0:  # for amp
-                        max_batch_src_len += 1
-                    while self.args.enable_amp and not max_batch_tgt_len % 8 == 0:  # for amp
-                        max_batch_tgt_len += 1
-
-            '''
-            sample_size = 0
-            max_batch_src_len = 0
-
-            for data_idx in self.data_indices:
-                src_len = self.src_lens[data_idx]
-                max_batch_src_len = max(src_len, max_batch_src_len)
-                while self.args.enable_amp and not max_batch_src_len % 8 == 0:          # for amp
-                    max_batch_src_len += 1
-
-                if max_batch_src_len * (sample_size + 1) <= batch_size:
-                    sample_size += 1
-                elif self.args.enable_amp and not sample_size % 8 == 0:
-                    sample_size += 1
-                else:
-                    self.batch_sizes.append(sample_size)
-
-                    sample_size = 1
-                    max_batch_src_len = src_len
-                    while self.args.enable_amp and not max_batch_src_len % 8 == 0:      # for amp
-                        max_batch_src_len += 1
-            '''
-
-            # lastly
-            self.batch_sizes.append(sample_size)
+            # lastly drop_last=True
+            total_iterator=int(self.data_size/batch_size)
+            for i in range(total_iterator):
+                self.batch_sizes.append(batch_size)
             self.batch_sizes = np.array(self.batch_sizes)
+            """
             assert np.sum(self.batch_sizes) == self.data_size, \
                 f"Size mismatch! Data size: {self.data_size}, sum batch sizes: {np.sum(self.batch_sizes)}"
-
+            """
             self.batch_ends = np.cumsum(self.batch_sizes)
             self.batch_starts = np.concatenate([[0], self.batch_ends[:-1]])
 
@@ -328,7 +266,7 @@ class G2SDataset(Dataset):
             a_lengths.append(a_length)
 
         fnode, fmess, agraph, bgraph, atom_scope, bond_scope = collate_graph_features(graph_features)
-
+        
         # target (seq)
         tgt_token_ids = self.tgt_token_ids[data_indices]
         tgt_lengths = self.tgt_lens[data_indices]
@@ -337,21 +275,14 @@ class G2SDataset(Dataset):
 
         tgt_token_ids = torch.as_tensor(tgt_token_ids, dtype=torch.long)
         tgt_lengths = torch.tensor(tgt_lengths, dtype=torch.long)
-
+        
+        
         distances = None
+        """
         if self.args.compute_graph_distance:
             distances = collate_graph_distances(self.args, graph_features, a_lengths)
-
         """
-        logging.info("--------------------src_tokens--------------------")
-        for data_index in data_indices:
-            smi = "".join(self.vocab_tokens[src_token_id] for src_token_id in self.src_token_ids[data_index])
-            logging.info(smi)
-        logging.info("--------------------distances--------------------")
-        logging.info(f"{distances}")
-        exit(0)
-        """
-
+        
         g2s_batch = G2SBatch(
             fnode=fnode,
             fmess=fmess,
@@ -360,11 +291,8 @@ class G2SDataset(Dataset):
             atom_scope=atom_scope,
             bond_scope=bond_scope,
             tgt_token_ids=tgt_token_ids,
-            tgt_lengths=tgt_lengths,
-            distances=distances
+            tgt_lengths=tgt_lengths
         )
-        # g2s_batch.log_tensor_shape()
-
         return g2s_batch
 
     def __len__(self):

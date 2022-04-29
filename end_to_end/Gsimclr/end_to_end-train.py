@@ -2,19 +2,21 @@ import argparse
 import logging
 import numpy as np
 import os
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0,3"
 import sys
 import time
 import torch
 import torch.nn as nn
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.optim as optim
-from my_models.Gsimclr import Gsimclr
+from my_models.ShareEncoder_MT import ShareEncoder_MT
 from torch.nn.init import xavier_uniform_
 from torch.utils.data import DataLoader
 from my_utils import parsing
 from my_utils.data_utils import load_vocab, G2SDataset
 from my_utils.train_utils import get_lr, grad_norm, NoamLR, param_count, param_norm, set_seed, setup_logger
-from my_models.contrastive_loss import calculate_loss, simclr_loss_vectorized
+from my_models.contrastive_loss import calculate_loss, simclr_loss_vectorized, others_simclr_loss
+import random
 
 def get_train_parser():
     parser = argparse.ArgumentParser("train")
@@ -35,43 +37,42 @@ def main(args):
     # initialization ----------------- model
     os.makedirs(args.save_dir, exist_ok=True)
 
-    #更改
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    #device=torch.device("cpu")
+    #############################################
+    local_rank=args.local_rank
+    torch.cuda.set_device(local_rank)
+    dist.init_process_group(backend='nccl')
+    device=local_rank
+    #############################################
 
     if args.model == "g2s_series_rel":
-        model_class=Gsimclr
+        model_class=ShareEncoder_MT
         dataset_class=G2SDataset
         assert args.compute_graph_distance
     else:
         raise ValueError(f"Model {args.model} not supported!")
     
-    model=model_class(args)
+    model=model_class(args,vocab).to(local_rank)
+
     for p in model.parameters():
         if p.dim() > 1 and p.requires_grad:
             xavier_uniform_(p)
 
+    #############TODO############################################
     if args.load_from:
         state=torch.load(args.load_from)
         pretrain_args = state["args"]
         pretrain_state_dict = state["state_dict"]
         model.load_state_dict(pretrain_state_dict)
         logging.info(f"Loaded pretrained state_dict from {args.load_from}")
+    #############################################################
 
-    ######################################################################
-    #修改，使用多gpu进行训练
-    #if torch.cuda.device_count()>1:
-    #    model=nn.DataParallel(model,device_ids=[0,1])
-    ######################################################################
-    model.to(device)
-    model.train()
+    
+    if torch.cuda.device_count()>1:
+        model=DDP(model,device_ids=[local_rank],output_device=local_rank,find_unused_parameters=True)
 
     logging.info(model)
-    logging.info(f"Number of parameters = {param_count(model)}")
+    logging.info(f"Number of total parameters = {param_count(model.module)}")
 
-    # initialization ----------------- data
-    src_train_dataset = dataset_class(args,is_reac=True,file=args.train_bin)
-    tgt_train_dataset = dataset_class(args,is_reac=False,file=args.train_bin)
     # initialization ----------------- optimizer
     optimizer = optim.AdamW(
         model.parameters(),
@@ -80,27 +81,17 @@ def main(args):
         eps=args.eps,
         weight_decay=args.weight_decay
     )
-    ###########################################################################
-    """
-    scheduler = NoamLR(
-        optimizer,
-        model_size=args.decoder_hidden_size,
-        warmup_steps=args.warmup_steps
-    )
-    """
-    ############################################################################
-    #print('len(src_train_dataset)',len(src_train_dataset)) ##0
-    #print('args.epoch',args.epoch)
+
+
     scheduler=optim.lr_scheduler.CosineAnnealingLR(
         optimizer,T_max=args.epoch,
         eta_min=0,
         last_epoch=-1
     )
-    ############################################################################
 
-
-    #src_valid_dataset = dataset_class(args, is_reac=True,file=args.valid_bin)
-    #tgt_valid_dataset = dataset_class(args,is_reac=False,file=args.valid_bin)
+    # initialization ----------------- data
+    src_train_dataset = dataset_class(args,is_reac=True,file=args.train_bin)
+    tgt_train_dataset = dataset_class(args,is_reac=False,file=args.train_bin)
 
     # Creates a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler(enabled=args.enable_amp)
@@ -108,40 +99,15 @@ def main(args):
     o_start = time.time()
     total_steps=0
     accum=0
+    accs=[]
 
     logging.info("Start training")
-    for epoch in range(args.epoch):
-        epoch += 1
+    for epoch in range(1, args.epoch+1):
+        model.train()
         model.zero_grad() #当model中的参数和optimizer中的参数不相同时，两者的zero_grad()不等价
 
-        ###########################################################
-        """
-        train_dataset=zip(src_train_dataset,tgt_train_dataset)
-        src_train_loader,tgt_train_loader=DataLoader(
-            dataset=train_dataset,
-            batch_size=1, 
-            shuffle=True,
-            collate_fn=lambda _batch: _batch[0],
-            pin_memory=True
-        )
-        """
-        ############################################################
-        ##########################################################################################
-        
-        ########################################################
-        #提取出sort()和shuffle_in_bucket()函数，生成的data_indices作为公共值传入src和tgt
-        #目的--shuffle
-        data_size=src_train_dataset.data_size #数据集总长度
-        src_lens=src_train_dataset.src_lens
-        bucket_size=1000
-        data_indices=np.argsort(src_lens)
-        for i in range(0, data_size, bucket_size):
-            np.random.shuffle(data_indices[i:i + bucket_size])
-        #将data_indices传回
-        src_train_dataset.data_indices=data_indices
-        tgt_train_dataset.data_indices=data_indices
-        ########################################################
-
+        src_train_dataset.shuffle_in_bucket(bucket_size=1000)
+        tgt_train_dataset.shuffle_in_bucket(bucket_size=1000)
         src_train_dataset.batch(
             batch_type=args.batch_type,
             batch_size=args.train_batch_size
@@ -150,55 +116,60 @@ def main(args):
             batch_type=args.batch_type,
             batch_size=args.train_batch_size
         )
+        src_train_sampler=torch.utils.data.distributed.DistributedSampler(src_train_dataset)
+        tgt_train_sampler=torch.utils.data.distributed.DistributedSampler(tgt_train_dataset)
 
         src_train_loader=DataLoader(
             dataset=src_train_dataset,
-            batch_size=1, #???????
+            batch_size=1,
             shuffle=False,
+            num_workers=2,
+            sampler=src_train_sampler,
             collate_fn=lambda _batch: _batch[0],
-            pin_memory=True
+            pin_memory=False,
         )
         tgt_train_loader=DataLoader(
             dataset=tgt_train_dataset,
-            batch_size=1, #?????????
+            batch_size=1,
             shuffle=False,
+            num_workers=2,
+            sampler=tgt_train_sampler,
             collate_fn=lambda _batch: _batch[0],
-            pin_memory=True
+            pin_memory=False,
         )
-        
-        ###############################################################################
+
+        src_train_loader.sampler.set_epoch(epoch)
+        tgt_train_loader.sampler.set_epoch(epoch)
 
         total_loss,total_num=0,0
         for src_batch,tgt_batch in zip(src_train_loader,tgt_train_loader):
-
             src_batch.to(device)
             tgt_batch.to(device)
-                
+            
             #Enable autocasting for the forward pass(model+loss)
             with torch.cuda.amp.autocast(enabled=args.enable_amp):
-                src_emb = model(src_batch) #[b,h]
-                tgt_emb = model(tgt_batch) #[b,h]
 
-                #print('src_emb.size()',src_emb.size())
-                #print('tgt_emb.size()',tgt_emb.size())
+                loss1,loss2,acc=model(src_batch,tgt_batch)
+                loss = loss1 + loss2
+
+                """
                 ##############################################################
                 #方法一：使用simclr的loss
-                #loss=simclr_loss_vectorized(src_emb,tgt_emb,tau=10)
+                #loss=simclr_loss_vectorized(src_emb,tgt_emb,tau=100)
+                loss_1=others_simclr_loss(src_emb,tgt_emb,100)
                 ##############################################################
 
                 ##############################################################
                 #方法二：使用MolR的loss
-                loss=calculate_loss(src_emb,tgt_emb,args)
+                #loss=calculate_loss(src_emb,tgt_emb,args)
                 ##############################################################
-
-            #optimizer.zero_grad()
-            #loss.backward()
-            #optimizer.step()
+                """
             scaler.scale(loss).backward()
             total_loss += loss.item()*args.train_batch_size 
             total_num += args.train_batch_size
             total_steps += 1
             accum +=1
+            accs.append(acc.item()*100)
 
             if accum == args.accumulation_count:
                 #Unscales the gradients of optimizer's assigned params in-place
@@ -214,23 +185,22 @@ def main(args):
                 accum=0
                 
             if total_steps%100==0:
-                logging.info('Step {} Loss: {:.4f}, lr {}'.format(total_steps,total_loss/total_num,get_lr(optimizer)))
-
+                logging.info('Step {} Loss: {:.4f}, lr: {},acc: {:.4f}'.format(total_steps,total_loss/total_num,get_lr(optimizer),np.mean(accs)))
+        
         #当前epoch结束
         logging.info('Train Epoch: [{}/{}] Loss: {:.4f},lr {:.6f}'.format(epoch, args.epoch, total_loss / total_num,get_lr(optimizer)))
-        
         #前两个epoch作为warmup_step(修改，发现lr有点大)，之后使用CosineAnnealingLR对学习率进行调整
         #if epoch>=2:
         scheduler.step()
-        
         #每5个epoch保存一次
         if epoch%5==0:
-            logging.info('Model Saving at epoch {}'.format(epoch))
-            state={
-                "args":args,
-                "state_dict":model.state_dict()
-            }
-            torch.save(state,os.path.join(args.save_dir,f"STEREO_dataset_epoch{epoch}.pt"))
+            if dist.get_rank() ==0:
+                logging.info('Model Saving at epoch {}'.format(epoch))
+                state={
+                    "args":args,
+                    "state_dict":model.module.state_dict()
+                }
+                torch.save(state,os.path.join(args.save_dir,f"End_to_End_epoch{epoch}.pt"))
 
 if __name__ == "__main__":
     train_parser = get_train_parser()
