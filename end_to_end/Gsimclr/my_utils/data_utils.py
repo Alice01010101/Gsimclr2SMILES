@@ -291,7 +291,8 @@ class G2SDataset(Dataset):
             atom_scope=atom_scope,
             bond_scope=bond_scope,
             tgt_token_ids=tgt_token_ids,
-            tgt_lengths=tgt_lengths
+            tgt_lengths=tgt_lengths,
+            distances=distances
         )
         return g2s_batch
 
