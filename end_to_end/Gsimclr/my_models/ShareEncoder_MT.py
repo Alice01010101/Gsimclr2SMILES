@@ -20,8 +20,10 @@ class ShareEncoder_MT(nn.Module):
         self.args=args
         self.vocab=vocab
         self.vocab_size=len(self.vocab)
-        self.map=nn.Linear(105,2)
 
+        while args.enable_amp and not self.vocab_size % 8 == 0:
+            self.vocab_size += 1
+        
         # encoder
         self.encoder = GraphFeatEncoder(
             args,

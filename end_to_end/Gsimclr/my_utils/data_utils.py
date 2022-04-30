@@ -81,7 +81,8 @@ class G2SBatch:
         self.tgt_lengths = tgt_lengths
         self.distances = distances
 
-
+        self.size = len(tgt_lengths)
+        
     def to(self, device):
         self.fnode = self.fnode.to(device)
         self.fmess = self.fmess.to(device)
