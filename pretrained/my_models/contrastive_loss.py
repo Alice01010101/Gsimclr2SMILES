@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-
+import math
+import torch.nn.functional as F
  
 def sim(z_i, z_j):
     """Normalized dot product between two vectors.
@@ -148,3 +149,91 @@ def calculate_loss(reactant_embeddings, product_embeddings, args,device='cuda'):
     loss = torch.mean(pos) + torch.sum(neg) / batch_size / (batch_size - 1)
 
     return loss
+
+
+
+def others_simclr_loss(x, x_aug,tau):
+    
+    T = tau
+    batch_size, _ = x.size()
+    x_abs = x.norm(dim=1)
+    x_aug_abs = x_aug.norm(dim=1)
+
+    sim_matrix = torch.einsum('ik,jk->ij', x, x_aug) / torch.einsum('i,j->ij', x_abs, x_aug_abs)
+    sim_matrix = torch.exp(sim_matrix / T)
+    pos_sim = sim_matrix[range(batch_size), range(batch_size)]
+    loss = pos_sim / (sim_matrix.sum(dim=1) - pos_sim)
+    loss = - torch.log(loss).mean()
+
+    return loss
+
+def get_positive_expectation(p_samples, average=True):
+    """Computes the positive part of a JS Divergence.
+    Args:
+        p_samples: Positive samples.
+        average: Average the result over samples.
+    Returns:
+        th.Tensor
+    """
+    log_2 = math.log(2.)
+    Ep = log_2 - F.softplus(- p_samples)
+
+    if average:
+        return Ep.mean()
+    else:
+        return Ep
+
+
+def get_negative_expectation(q_samples, average=True):
+    """Computes the negative part of a JS Divergence.
+    Args:
+        q_samples: Negative samples.
+        average: Average the result over samples.
+    Returns:
+        th.Tensor
+    """
+    log_2 = math.log(2.)
+    Eq = F.softplus(-q_samples) + q_samples - log_2
+
+    if average:
+        return Eq.mean()
+    else:
+        return Eq
+
+def local_global_loss_(l_enc,g_enc,mlen):
+    """
+    print('mlen',mlen)
+    print('num_graphs',num_graphs)
+    print('num_nodes',num_nodes)
+    mlen 128
+    num_graphs 128
+    num_nodes 5504
+    """
+    max_t=l_enc.shape[0]
+    hid=l_enc.shape[2]
+    l_enc=l_enc.reshape(-1,hid)
+
+    num_graphs = g_enc.shape[0]
+    num_nodes = l_enc.shape[0]
+    
+
+    device = g_enc.device
+
+    pos_mask = torch.zeros((num_nodes,num_graphs)).to(device)
+    neg_mask = torch.ones((num_nodes,num_graphs)).to(device)
+
+    total_len=0
+    for i in range(mlen):
+        for j in range(max_t):
+            pos_mask[total_len+j][i]=1.
+            neg_mask[total_len+j][i]=0.
+        total_len +=max_t
+    
+    res = torch.mm(l_enc,g_enc.t())
+
+    E_pos = get_positive_expectation(res * pos_mask, average=False).sum()
+    E_pos = E_pos / num_nodes
+    E_neg = get_negative_expectation(res * neg_mask, average=False).sum()
+    E_neg = E_neg / (num_nodes * (num_graphs - 1))
+
+    return E_neg - E_pos

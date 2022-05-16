@@ -9,8 +9,27 @@ from my_models.graphfeat import GraphFeatEncoder
 from my_models.attention_xl import AttnEncoderXL
 
 from torch_geometric.nn import Set2Set
+
+class MLP(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super(MLP, self).__init__()
+        self.fcs = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.BatchNorm1d(out_dim),
+            nn.PReLU(),
+            nn.Linear(out_dim, out_dim),
+            nn.BatchNorm1d(out_dim),
+            nn.PReLU(),
+            nn.Linear(out_dim, out_dim),
+            nn.PReLU()
+        )
+        self.linear_shortcut = nn.Linear(in_dim, out_dim)
+
+    def forward(self, x):
+        return self.fcs(x) + self.linear_shortcut(x)
+
 class Gsimclr(nn.Module):
-    def __init__(self,args,feature_dim=128):
+    def __init__(self,args,feature_dim=64):
         super(Gsimclr,self).__init__()
         self.args=args
 
@@ -31,12 +50,27 @@ class Gsimclr(nn.Module):
         #self.set2set=Set2Set(256,processing_steps=3) 
 
         # projection head 
+        self.head=MLP(128,feature_dim)
+        
         self.g = nn.Sequential(
-                               nn.Linear(256,256,bias=True),
-                               nn.BatchNorm1d(256),
-                               nn.ReLU(inplace=True),
-                               nn.Linear(256, feature_dim, bias=True))
-
+                               nn.Linear(128,128,bias=True),
+                               nn.BatchNorm1d(128),
+                               nn.ReLU(),
+                               nn.Linear(128, feature_dim, bias=True))
+        
+        """
+        self.g = nn.Sequential(
+            nn.Linear(128,feature_dim),
+            nn.BatchNorm1d(feature_dim),
+            nn.PReLU(),
+            nn.Linear(feature_dim, feature_dim),
+            nn.BatchNorm1d(feature_dim),
+            nn.PReLU(),
+            nn.Linear(feature_dim, feature_dim),
+            nn.PReLU()
+        )
+        self.linear_shortcut = nn.Linear(128, feature_dim)
+        """
 
     def f(self,reaction_batch:G2SBatch):
 
@@ -65,35 +99,38 @@ class Gsimclr(nn.Module):
         
         
         if self.attention_encoder is not None:
+            
             padded_memory_bank = self.attention_encoder(
                 padded_memory_bank,
                 memory_lengths,
                 reaction_batch.distances
             )
-        
+            
         return padded_memory_bank,memory_lengths
 
     def forward(self, x):
-        x_1,memory_lengths= self.f(x) #[max_t,b,h]
-        ################################################################
-        #方法一：使用torch.mean()
-        #x_2=torch.mean((x_1.transpose(0,1)),dim=1)       #->[b,max_t,h]->[b,h]
-        #方法二：使用torch.sum()
-        x_2=torch.sum((x_1.transpose(0,1)),dim=1)
         """
-        #方法三：使用Set2Set()
-        max_t=max(memory_lengths) #之前已经使用长度补齐的操作了
-        batch_index=[idx for idx,_ in enumerate(memory_lengths) for i in range(max_t)]
-        batch_index=torch.tensor(batch_index).cuda()
-        x_1_1=x_1.transpose(0,1)
-        #print('x_1_1.size()',x_1_1.size())
-        x_1_1=x_1_1.reshape(-1,256)
-        x_2=self.set2set(x_1_1,batch_index)
-        #print('x_2.size()',x_2.size())
-        """
-        ################################################################
-        #print('x_2.size()',x_2.size())
-        x_3=self.g(x_2)
-        #print('x_3.size()',x_3.size())
+        local_emb,memory_lengths= self.f(x) #[max_t,b,h]
+        local_emb=local_emb.transpose(0,1) #[b,max_t,h]
+        global_emb=torch.sum(local_emb,dim=1)
+        b=local_emb.shape[0]
+        max_t=local_emb.shape[1]
+        hid=local_emb.shape[2]
+        local_emb=local_emb.reshape(-1,hid) #[b*max_t,h]
 
-        return x_3
+        local_enc=self.head(local_emb)
+        global_enc=self.head(global_emb)
+    
+        local_enc=self.g(local_emb)
+        global_enc=self.g(global_emb)
+
+        #local_enc=local_enc.transpose(1,2) #[b,max_t, h] 
+        local_enc=local_enc.reshape(b,max_t,-1)
+        mlen=len(memory_lengths)
+        #return local_enc,global_enc,mlen
+        """
+        local_emb,_= self.f(x) #[max_t,b,h]
+        local_emb=local_emb.transpose(0,1) #[b,max_t,h]
+        global_emb=torch.sum(local_emb,dim=1) #[b,h]
+        global_enc=self.head(global_emb)
+        return global_enc

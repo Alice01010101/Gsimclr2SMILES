@@ -7,13 +7,30 @@ from my_utils.chem_utils import ATOM_FDIM,BOND_FDIM
 from my_utils.data_utils import G2SBatch
 from my_models.graphfeat import GraphFeatEncoder 
 from my_models.attention_xl import AttnEncoderXL
-from my_models.contrastive_loss import calculate_loss, simclr_loss_vectorized, others_simclr_loss
+from my_models.contrastive_loss import calculate_loss, simclr_loss_vectorized, others_simclr_loss,local_global_loss_
 from my_utils.data_utils import G2SDataset
 from onmt.decoders import TransformerDecoder
 from onmt.modules.embeddings import Embeddings
 from onmt.translate import BeamSearch, GNMTGlobalScorer, GreedySearch
 from typing import Any, Dict
 from torch_geometric.nn import Set2Set
+
+class MLP(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super(MLP, self).__init__()
+        self.fcs = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.PReLU(),
+            nn.Linear(out_dim, out_dim),
+            nn.PReLU(),
+            nn.Linear(out_dim, out_dim),
+            nn.PReLU()
+        )
+        self.linear_shortcut = nn.Linear(in_dim, out_dim)
+
+    def forward(self, x):
+        return self.fcs(x) + self.linear_shortcut(x)
+
 class ShareEncoder_MT(nn.Module): 
     def __init__(self,args,vocab:Dict[str,int],feature_dim=128):
         super(ShareEncoder_MT,self).__init__()
@@ -21,6 +38,7 @@ class ShareEncoder_MT(nn.Module):
         self.vocab=vocab
         self.vocab_size=len(self.vocab)
 
+        ##看看要不要加
         while args.enable_amp and not self.vocab_size % 8 == 0:
             self.vocab_size += 1
         
@@ -72,14 +90,7 @@ class ShareEncoder_MT(nn.Module):
         )
 
         # projection head 
-        self.head2 = nn.Sequential(
-                               nn.Linear(256,256,bias=True),
-                               nn.BatchNorm1d(256),
-                               nn.ReLU(inplace=True),
-                               nn.Linear(256, feature_dim, bias=True))
-
-        self.constantpad1d = nn.ConstantPad1d((1, 0), self.vocab["_SOS"])
-
+        self.head=MLP(256,feature_dim)
 
     def sharencoder(self,reaction_batch:G2SBatch):
         
@@ -105,14 +116,12 @@ class ShareEncoder_MT(nn.Module):
                                       dtype=torch.long,
                                       device=padded_memory_bank.device)
         
-        """
         if self.attention_encoder is not None:
             padded_memory_bank = self.attention_encoder(
                 padded_memory_bank,
                 memory_lengths,
                 reaction_batch.distances
             )
-        """
 
         self.decoder.state["src"] = np.zeros(max_length)
 
@@ -122,9 +131,9 @@ class ShareEncoder_MT(nn.Module):
         padded_memory_bank, memory_lengths = self.sharencoder(src_batch)
         # adapted from onmt.models
         dec_in = src_batch.tgt_token_ids[:, :-1]                       # pop last, insert SOS for decoder input
-        # m = nn.ConstantPad1d((1, 0), self.vocab["_SOS"])
-        # dec_in = m(dec_in)
-        dec_in = self.constantpad1d(dec_in)
+        m = nn.ConstantPad1d((1, 0), self.vocab["_SOS"])
+        dec_in = m(dec_in)
+        #dec_in = self.constantpad1d(dec_in)
         dec_in = dec_in.transpose(0, 1).unsqueeze(-1)                       # [b, max_tgt_t] => [max_tgt_t, b, 1]
 
         dec_outs, _ = self.decoder(
@@ -149,14 +158,32 @@ class ShareEncoder_MT(nn.Module):
         return loss,acc
 
     def simclrL(self,src_batch:G2SBatch,tgt_batch:G2SBatch):
+        
         src_emb,_=self.sharencoder(src_batch)
         tgt_emb,_=self.sharencoder(tgt_batch)
-        src_1=torch.sum((src_emb.transpose(0,1)),dim=1)
-        tgt_1=torch.sum((tgt_emb.transpose(0,1)),dim=1)
-        src_2=self.head2(src_1)
-        tgt_2=self.head2(tgt_1)
-
+        src_emb=src_emb.transpose(0,1)
+        tgt_emb=tgt_emb.transpose(0,1)
+        src_1=torch.sum(src_emb,dim=1)
+        tgt_1=torch.sum(tgt_emb,dim=1)
+        src_2=self.head(src_1)
+        tgt_2=self.head(tgt_1)
         loss=others_simclr_loss(src_2,tgt_2,tau=100)
+        
+        """
+        local1_emb,memory_len1=self.sharencoder(src_batch)
+        local2_emb,memory_len2=self.sharencoder(tgt_batch)
+        global1_emb=torch.sum((local1_emb.transpose(0,1)),dim=1)
+        global2_emb=torch.sum((local2_emb.transpose(0,1)),dim=1)
+        
+        local1_enc=self.head(local1_emb)
+        local2_enc=self.head(local2_emb)
+        global1_enc=self.head(global1_emb)
+        global2_enc=self.head(global2_emb)
+        loss1 = local_global_loss_(local1_enc,global1_enc,memory_len1)
+        loss2 = local_global_loss_(local2_enc,global2_enc,memory_len2)
+        loss3 = molrloss()
+        loss=loss1+loss2
+        """
         return loss
 
     def forward(self,src_batch:G2SBatch,tgt_batch:G2SBatch):
